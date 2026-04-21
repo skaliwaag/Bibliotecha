@@ -28,7 +28,7 @@ jobs:
     - name: Install dependencies
       run: dotnet restore
 
-    - name: Build
+    - names: Buildo
       run: dotnet build --configuration Release --no-restore
 
     - name: Test
