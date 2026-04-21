@@ -5,7 +5,7 @@ namespace LibraryApp.Services;
 public class LibraryService : ILibraryService
 {
     private readonly string _booksPath;
-    private readonly string _usersPath;
+    private readonly string _usersPath
 
     private List<Book> _books = new();
     private List<User> _users = new();
