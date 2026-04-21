@@ -5,7 +5,7 @@ on:
  # pull_request:
     branches: [ main ]
     paths:
-    - '**.cs'
+ #   - '**.cs'
     - '**.csproj'
 
 jobs:
@@ -26,7 +26,7 @@ jobs:
         dotnet-version: ${{ matrix.dotnet }}
 
     - name: Install dependencies
-      run: dotnet restore
+     # run: dotnet restore
 
     - name: Build
       run: dotnet build --configuration Release --no-restore
