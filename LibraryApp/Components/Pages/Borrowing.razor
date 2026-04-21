@@ -1,0 +1,233 @@
+@page "/borrowing"
+@rendermode InteractiveServer
+@inject ILibraryService LibraryService
+
+<PageTitle>Borrow / Return Books</PageTitle>
+
+<h1>Borrow / Return Books</h1>
+
+@if (!string.IsNullOrEmpty(statusMessage))
+{
+    <div class="alert @statusClass alert-dismissible" role="alert">
+        @statusMessage
+        <button type="button" class="btn-close" @onclick="() => statusMessage = string.Empty"></button>
+    </div>
+}
+
+<div class="row">
+
+    <!-- ── Borrow a Book ─────────────────────────────────── -->
+    <div class="col-md-6">
+        <div class="card mb-4">
+            <div class="card-header bg-primary text-white">
+                <strong>Borrow a Book</strong>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <label class="form-label">Select User</label>
+                    <select class="form-select" @bind="borrowUserId">
+                        <option value="0">-- Choose a user --</option>
+                        @foreach (var u in users)
+                        {
+                            <option value="@u.Id">@u.Name (@u.Email)</option>
+                        }
+                    </select>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Search &amp; Select Book</label>
+                    <input class="form-control mb-2" @bind="borrowBookSearch" @bind:event="oninput"
+                           placeholder="Filter books by title or author..." />
+                    <select class="form-select" size="6" @bind="borrowBookId">
+                        <option value="0">-- Choose a book --</option>
+                        @foreach (var b in FilteredAvailableBooks)
+                        {
+                            <option value="@b.Id">[@b.Id] @b.Title — @b.Author</option>
+                        }
+                    </select>
+                    <small class="text-muted">@availableBooks.Count available books</small>
+                </div>
+
+                <button class="btn btn-primary w-100" @onclick="BorrowBook"
+                        disabled="@(borrowUserId == 0 || borrowBookId == 0)">
+                    Borrow Selected Book
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── Return a Book ─────────────────────────────────── -->
+    <div class="col-md-6">
+        <div class="card mb-4">
+            <div class="card-header bg-success text-white">
+                <strong>Return a Book</strong>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <label class="form-label">Select User</label>
+                    <select class="form-select" @bind="returnUserId" @bind:after="OnReturnUserChanged">
+                        <option value="0">-- Choose a user --</option>
+                        @foreach (var u in users)
+                        {
+                            <option value="@u.Id">@u.Name</option>
+                        }
+                    </select>
+                </div>
+
+                @if (returnUserId != 0 && userBorrowedBooks.Any())
+                {
+                    <div class="mb-3">
+                        <label class="form-label">Books Currently Borrowed</label>
+                        <select class="form-select" size="5" @bind="returnBookIndex">
+                            <option value="-1">-- Select a book to return --</option>
+                            @for (int i = 0; i < userBorrowedBooks.Count; i++)
+                            {
+                                var idx = i;
+                                var book = userBorrowedBooks[i];
+                                <option value="@idx">@book.Title — @book.Author</option>
+                            }
+                        </select>
+                    </div>
+
+                    <button class="btn btn-success w-100" @onclick="ReturnBook"
+                            disabled="@(returnBookIndex < 0)">
+                        Return Selected Book
+                    </button>
+                }
+                else if (returnUserId != 0)
+                {
+                    <p class="text-muted">This user has no borrowed books.</p>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ── All Borrowed Books ──────────────────────────────── -->
+<div class="card">
+    <div class="card-header">
+        <strong>Currently Borrowed Books (All Users)</strong>
+    </div>
+    <div class="card-body">
+        @if (!borrowedBooks.Any())
+        {
+            <p class="text-muted">No books are currently borrowed.</p>
+        }
+        else
+        {
+            <table class="table table-sm table-bordered">
+                <thead class="table-secondary">
+                    <tr>
+                        <th>User</th>
+                        <th>Email</th>
+                        <th>Borrowed Books</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var entry in borrowedBooks)
+                    {
+                        @if (entry.Value.Any())
+                        {
+                            <tr>
+                                <td>@entry.Key.Name</td>
+                                <td>@entry.Key.Email</td>
+                                <td>
+                                    <ul class="mb-0">
+                                        @foreach (var book in entry.Value)
+                                        {
+                                            <li>@book.Title <span class="text-muted">by @book.Author</span> (ISBN: @book.ISBN)</li>
+                                        }
+                                    </ul>
+                                </td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        }
+    </div>
+</div>
+
+@code {
+    private List<User> users = new();
+    private List<Book> availableBooks = new();
+    private Dictionary<User, List<Book>> borrowedBooks = new();
+
+    // Borrow form state
+    private int borrowUserId = 0;
+    private int borrowBookId = 0;
+    private string borrowBookSearch = string.Empty;
+
+    // Return form state
+    private int returnUserId = 0;
+    private int returnBookIndex = -1;
+    private List<Book> userBorrowedBooks = new();
+
+    // UI feedback
+    private string statusMessage = string.Empty;
+    private string statusClass = "alert-success";
+
+    protected override void OnInitialized() => Refresh();
+
+    private void Refresh()
+    {
+        users         = LibraryService.GetUsers();
+        availableBooks = LibraryService.GetBooks();
+        borrowedBooks  = LibraryService.GetBorrowedBooks();
+    }
+
+    private IEnumerable<Book> FilteredAvailableBooks =>
+        string.IsNullOrWhiteSpace(borrowBookSearch)
+            ? availableBooks
+            : availableBooks.Where(b =>
+                b.Title.Contains(borrowBookSearch, StringComparison.OrdinalIgnoreCase) ||
+                b.Author.Contains(borrowBookSearch, StringComparison.OrdinalIgnoreCase));
+
+    private void BorrowBook()
+    {
+        var (success, message) = LibraryService.BorrowBook(borrowUserId, borrowBookId);
+        ShowMessage(message, success ? "alert-success" : "alert-danger");
+
+        if (success)
+        {
+            borrowBookId = 0;
+            borrowBookSearch = string.Empty;
+            Refresh();
+            OnReturnUserChanged(); // refresh return list if same user is selected
+        }
+    }
+
+    private void OnReturnUserChanged()
+    {
+        returnBookIndex = -1;
+        if (returnUserId == 0)
+        {
+            userBorrowedBooks = new();
+            return;
+        }
+
+        var user = users.FirstOrDefault(u => u.Id == returnUserId);
+        if (user != null && borrowedBooks.TryGetValue(user, out var list))
+            userBorrowedBooks = new List<Book>(list);
+        else
+            userBorrowedBooks = new();
+    }
+
+    private void ReturnBook()
+    {
+        var (success, message) = LibraryService.ReturnBook(returnUserId, returnBookIndex);
+        ShowMessage(message, success ? "alert-success" : "alert-danger");
+
+        if (success)
+        {
+            Refresh();
+            OnReturnUserChanged();
+        }
+    }
+
+    private void ShowMessage(string msg, string cssClass)
+    {
+        statusMessage = msg;
+        statusClass   = cssClass;
+    }
+}

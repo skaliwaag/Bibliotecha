@@ -1,0 +1,161 @@
+@page "/books"
+@rendermode InteractiveServer
+@inject ILibraryService LibraryService
+
+<PageTitle>Manage Books</PageTitle>
+
+<h1>Manage Books</h1>
+
+@if (!string.IsNullOrEmpty(statusMessage))
+{
+    <div class="alert @statusClass alert-dismissible" role="alert">
+        @statusMessage
+        <button type="button" class="btn-close" @onclick="() => statusMessage = string.Empty"></button>
+    </div>
+}
+
+<!-- Add / Edit Form -->
+<div class="card mb-4">
+    <div class="card-header">
+        <strong>@(editingBook.Id == 0 ? "Add New Book" : $"Editing Book ID {editingBook.Id}")</strong>
+    </div>
+    <div class="card-body">
+        <div class="row g-2">
+            <div class="col-md-4">
+                <label class="form-label">Title</label>
+                <input class="form-control" @bind="editingBook.Title" placeholder="Book title" />
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Author</label>
+                <input class="form-control" @bind="editingBook.Author" placeholder="Author name" />
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">ISBN</label>
+                <input class="form-control" @bind="editingBook.ISBN" placeholder="ISBN" />
+            </div>
+            <div class="col-md-1 d-flex align-items-end">
+                <button class="btn btn-success w-100" @onclick="SaveBook">
+                    @(editingBook.Id == 0 ? "Add" : "Save")
+                </button>
+            </div>
+        </div>
+        @if (editingBook.Id != 0)
+        {
+            <button class="btn btn-secondary mt-2" @onclick="CancelEdit">Cancel Edit</button>
+        }
+    </div>
+</div>
+
+<!-- Search -->
+<div class="mb-3">
+    <input class="form-control" @bind="searchTerm" @bind:event="oninput" placeholder="Search by title, author, or ISBN..." />
+</div>
+
+<!-- Book List -->
+<table class="table table-striped table-hover">
+    <thead class="table-dark">
+        <tr>
+            <th>ID</th>
+            <th>Title</th>
+            <th>Author</th>
+            <th>ISBN</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var book in FilteredBooks)
+        {
+            <tr>
+                <td>@book.Id</td>
+                <td>@book.Title</td>
+                <td>@book.Author</td>
+                <td>@book.ISBN</td>
+                <td>
+                    <button class="btn btn-sm btn-warning me-1" @onclick="() => StartEdit(book)">Edit</button>
+                    <button class="btn btn-sm btn-danger" @onclick="() => DeleteBook(book.Id)">Delete</button>
+                </td>
+            </tr>
+        }
+        @if (!FilteredBooks.Any())
+        {
+            <tr><td colspan="5" class="text-center text-muted">No books found.</td></tr>
+        }
+    </tbody>
+</table>
+<p class="text-muted">Showing @FilteredBooks.Count() of @books.Count books</p>
+
+@code {
+    private List<Book> books = new();
+    private Book editingBook = new();
+    private string searchTerm = string.Empty;
+    private string statusMessage = string.Empty;
+    private string statusClass = "alert-success";
+
+    protected override void OnInitialized()
+    {
+        books = LibraryService.GetBooks();
+    }
+
+    private IEnumerable<Book> FilteredBooks =>
+        string.IsNullOrWhiteSpace(searchTerm)
+            ? books
+            : books.Where(b =>
+                b.Title.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
+                b.Author.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
+                b.ISBN.Contains(searchTerm, StringComparison.OrdinalIgnoreCase));
+
+    private void SaveBook()
+    {
+        if (string.IsNullOrWhiteSpace(editingBook.Title) ||
+            string.IsNullOrWhiteSpace(editingBook.Author) ||
+            string.IsNullOrWhiteSpace(editingBook.ISBN))
+        {
+            ShowMessage("Please fill in all fields.", "alert-danger");
+            return;
+        }
+
+        if (editingBook.Id == 0)
+        {
+            LibraryService.AddBook(editingBook);
+            ShowMessage($"Book '{editingBook.Title}' added successfully.", "alert-success");
+        }
+        else
+        {
+            LibraryService.EditBook(editingBook);
+            ShowMessage($"Book '{editingBook.Title}' updated successfully.", "alert-success");
+        }
+
+        editingBook = new Book();
+        books = LibraryService.GetBooks();
+    }
+
+    private void StartEdit(Book book)
+    {
+        editingBook = new Book
+        {
+            Id     = book.Id,
+            Title  = book.Title,
+            Author = book.Author,
+            ISBN   = book.ISBN
+        };
+    }
+
+    private void CancelEdit()
+    {
+        editingBook = new Book();
+    }
+
+    private void DeleteBook(int id)
+    {
+        var book = books.FirstOrDefault(b => b.Id == id);
+        LibraryService.DeleteBook(id);
+        books = LibraryService.GetBooks();
+        ShowMessage($"Book deleted.", "alert-warning");
+    }
+
+    private void ShowMessage(string msg, string cssClass)
+    {
+        statusMessage = msg;
+        statusClass = cssClass;
+    }
+}

@@ -1,0 +1,151 @@
+@page "/users"
+@rendermode InteractiveServer
+@inject ILibraryService LibraryService
+
+<PageTitle>Manage Users</PageTitle>
+
+<h1>Manage Users</h1>
+
+@if (!string.IsNullOrEmpty(statusMessage))
+{
+    <div class="alert @statusClass alert-dismissible" role="alert">
+        @statusMessage
+        <button type="button" class="btn-close" @onclick="() => statusMessage = string.Empty"></button>
+    </div>
+}
+
+<!-- Add / Edit Form -->
+<div class="card mb-4">
+    <div class="card-header">
+        <strong>@(editingUser.Id == 0 ? "Add New User" : $"Editing User ID {editingUser.Id}")</strong>
+    </div>
+    <div class="card-body">
+        <div class="row g-2">
+            <div class="col-md-5">
+                <label class="form-label">Name</label>
+                <input class="form-control" @bind="editingUser.Name" placeholder="Full name" />
+            </div>
+            <div class="col-md-5">
+                <label class="form-label">Email</label>
+                <input class="form-control" @bind="editingUser.Email" placeholder="Email address" />
+            </div>
+            <div class="col-md-2 d-flex align-items-end">
+                <button class="btn btn-success w-100" @onclick="SaveUser">
+                    @(editingUser.Id == 0 ? "Add" : "Save")
+                </button>
+            </div>
+        </div>
+        @if (editingUser.Id != 0)
+        {
+            <button class="btn btn-secondary mt-2" @onclick="CancelEdit">Cancel Edit</button>
+        }
+    </div>
+</div>
+
+<!-- Search -->
+<div class="mb-3">
+    <input class="form-control" @bind="searchTerm" @bind:event="oninput" placeholder="Search by name or email..." />
+</div>
+
+<!-- User List -->
+<table class="table table-striped table-hover">
+    <thead class="table-dark">
+        <tr>
+            <th>ID</th>
+            <th>Name</th>
+            <th>Email</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var user in FilteredUsers)
+        {
+            <tr>
+                <td>@user.Id</td>
+                <td>@user.Name</td>
+                <td>@user.Email</td>
+                <td>
+                    <button class="btn btn-sm btn-warning me-1" @onclick="() => StartEdit(user)">Edit</button>
+                    <button class="btn btn-sm btn-danger" @onclick="() => DeleteUser(user.Id)">Delete</button>
+                </td>
+            </tr>
+        }
+        @if (!FilteredUsers.Any())
+        {
+            <tr><td colspan="4" class="text-center text-muted">No users found.</td></tr>
+        }
+    </tbody>
+</table>
+<p class="text-muted">Showing @FilteredUsers.Count() of @users.Count users</p>
+
+@code {
+    private List<User> users = new();
+    private User editingUser = new();
+    private string searchTerm = string.Empty;
+    private string statusMessage = string.Empty;
+    private string statusClass = "alert-success";
+
+    protected override void OnInitialized()
+    {
+        users = LibraryService.GetUsers();
+    }
+
+    private IEnumerable<User> FilteredUsers =>
+        string.IsNullOrWhiteSpace(searchTerm)
+            ? users
+            : users.Where(u =>
+                u.Name.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
+                u.Email.Contains(searchTerm, StringComparison.OrdinalIgnoreCase));
+
+    private void SaveUser()
+    {
+        if (string.IsNullOrWhiteSpace(editingUser.Name) ||
+            string.IsNullOrWhiteSpace(editingUser.Email))
+        {
+            ShowMessage("Please fill in all fields.", "alert-danger");
+            return;
+        }
+
+        if (editingUser.Id == 0)
+        {
+            LibraryService.AddUser(editingUser);
+            ShowMessage($"User '{editingUser.Name}' added successfully.", "alert-success");
+        }
+        else
+        {
+            LibraryService.EditUser(editingUser);
+            ShowMessage($"User '{editingUser.Name}' updated successfully.", "alert-success");
+        }
+
+        editingUser = new User();
+        users = LibraryService.GetUsers();
+    }
+
+    private void StartEdit(User user)
+    {
+        editingUser = new User
+        {
+            Id    = user.Id,
+            Name  = user.Name,
+            Email = user.Email
+        };
+    }
+
+    private void CancelEdit()
+    {
+        editingUser = new User();
+    }
+
+    private void DeleteUser(int id)
+    {
+        LibraryService.DeleteUser(id);
+        users = LibraryService.GetUsers();
+        ShowMessage("User deleted.", "alert-warning");
+    }
+
+    private void ShowMessage(string msg, string cssClass)
+    {
+        statusMessage = msg;
+        statusClass = cssClass;
+    }
+}
