@@ -75,7 +75,7 @@ public class LibraryService : ILibraryService
 
     public void DeleteBook(int id)
     {
-        _books.RemoveAll(b => b.Id == id);
+     #   _books.RemoveAll(b => b.Id == id);
         WriteBooks();
     }
 
