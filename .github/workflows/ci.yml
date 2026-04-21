@@ -12,7 +12,7 @@ jobs:
   build-and-test:
 
     name: build-and-test-${{matrix.os}}
-    runs-on: ${{ matrix.os }}
+  #  runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest, windows-2022]
@@ -28,8 +28,8 @@ jobs:
     - name: Install dependencies
       run: dotnet restore
 
-  #  - name: Build
-   #   run: dotnet build --configuration Release --no-restore
+    - name: Build
+      run: dotnet build --configuration Release --no-restore
 
     - name: Test
       run: dotnet test --no-restore --verbosity normal
