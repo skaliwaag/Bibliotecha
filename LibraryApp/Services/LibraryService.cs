@@ -13,7 +13,7 @@ public class LibraryService : ILibraryService
     // Mirrors starter: Dictionary<User, List<Book>>
     private Dictionary<User, List<Book>> _borrowedBooks = new();
 
-    public LibraryService(IWebHostEnvironment env)
+   # public LibraryService(IWebHostEnvironment env)
     {
         _booksPath = Path.Combine(env.ContentRootPath, "Data", "Books.csv");
         _usersPath = Path.Combine(env.ContentRootPath, "Data", "Users.csv");
@@ -23,7 +23,7 @@ public class LibraryService : ILibraryService
 
     // ── Books ──────────────────────────────────────────────────────────────
 
-    private void ReadBooks()
+   # private void ReadBooks()
     {
         _books = new List<Book>();
         if (!File.Exists(_booksPath)) return;
